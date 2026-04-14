@@ -3,7 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"bytes"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"net/url"
+	"path"
 	"runtime"
 	"strings"
 
@@ -156,10 +161,43 @@ func main() {
 	hintLabel.TextSize = 10
 	hintLabel.Alignment = fyne.TextAlignCenter
 
+	const imgW, imgH = float32(88), float32(44)
+
+	// greyPx is a 1×1 grey image used as placeholder while device images load.
+	greyPx := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+	greyPx.SetNRGBA(0, 0, struct{ R, G, B, A uint8 }{220, 220, 220, 255})
+
 	prows := make([]*pluginRow, len(Plugins))
 	objs := make([]fyne.CanvasObject, len(Plugins))
 	for i, p := range Plugins {
-		check := widget.NewCheck(p.Name, nil)
+		check := widget.NewCheck("", nil)
+
+		// name + description stacked vertically
+		nameText := canvas.NewText(p.Name, colBlack)
+		nameText.TextSize = 12
+
+		descText := canvas.NewText(p.Desc, colGrey150)
+		descText.TextSize = 10
+		descText.TextStyle = fyne.TextStyle{Italic: true}
+
+		textBox := container.NewVBox(
+			container.New(layout.NewCustomPaddedLayout(4, 0, 0, 0), nameText),
+			container.New(layout.NewCustomPaddedLayout(0, 4, 0, 0), descText),
+		)
+
+		// device image — starts as grey placeholder, loaded asynchronously
+		imgCanvas := canvas.NewImageFromImage(greyPx)
+		imgCanvas.FillMode = canvas.ImageFillStretch
+		imgCanvas.SetMinSize(fyne.NewSize(imgW, imgH))
+
+		if p.ImgURL != "" {
+			if data, err := assetFS.ReadFile("assets/" + path.Base(p.ImgURL)); err == nil {
+				if decoded, _, err := image.Decode(bytes.NewReader(data)); err == nil {
+					imgCanvas.Image = decoded
+					imgCanvas.FillMode = canvas.ImageFillContain
+				}
+			}
+		}
 
 		vst3Badge := canvas.NewText("vst3:", colGrey150)
 		vst3Badge.TextSize = 9
@@ -180,7 +218,9 @@ func main() {
 			),
 			info,
 		)
-		row := container.NewBorder(nil, nil, nil, right, check)
+
+		center := container.NewBorder(nil, nil, imgCanvas, nil, textBox)
+		row := container.NewBorder(nil, nil, check, right, center)
 		prows[i] = &pluginRow{plugin: p, check: check, vst3Badge: vst3Badge, aaxBadge: aaxBadge, obj: row}
 		objs[i] = row
 	}
