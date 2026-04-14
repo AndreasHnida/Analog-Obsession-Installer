@@ -67,7 +67,7 @@ func (bwTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.
 	case theme.ColorNameFocus:
 		return colGrey80
 	case theme.ColorNameHover:
-		return colGrey210
+		return color.NRGBA{R: 0, G: 0, B: 0, A: 0} // no hover tint on buttons
 	case theme.ColorNamePressed:
 		return colGrey180
 	case theme.ColorNameSelection:
@@ -113,9 +113,17 @@ func (bwTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 func (bwTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {
 	case theme.SizeNamePadding:
-		return 8 // default 4 → doubled for breathing room
+		return 8
 	case theme.SizeNameInnerPadding:
 		return 8
+	case theme.SizeNameText:
+		return 12 // default 14 → -2
+	case theme.SizeNameHeadingText:
+		return 22 // default 24 → -2
+	case theme.SizeNameSubHeadingText:
+		return 16 // default 18 → -2
+	case theme.SizeNameCaptionText:
+		return 9
 	default:
 		return theme.LightTheme().Size(name)
 	}

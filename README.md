@@ -8,12 +8,9 @@ A fan-made batch installer for the free VST3 plugins by **Analog Obsession**.
 
 ## What it does
 
-- Lists all free Analog Obsession VST3 plugins in one window
-- Shows which plugins are already installed
-- Downloads and installs selected plugins in one click
-- Supports cancellation mid-install and removal of installed plugins
-- Writes a log file next to the executable for troubleshooting
-- Requires no separate installer — single portable `.exe`
+Lists all free Analog Obsession plugins in one window. Select the ones you want and click **Install Selected** — the installer handles the rest.
+
+> **Work in progress** — AAX and macOS support are planned for a future release.
 
 ## Requirements
 

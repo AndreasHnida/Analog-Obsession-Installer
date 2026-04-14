@@ -3,21 +3,69 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"runtime"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 type pluginRow struct {
-	plugin Plugin
-	check  *widget.Check
-	badge  *widget.Label
-	obj    fyne.CanvasObject
+	plugin    Plugin
+	check     *widget.Check
+	vst3Badge *canvas.Text
+	aaxBadge  *canvas.Text
+	obj       fyne.CanvasObject
+}
+
+// infoBtn is a small icon button that fires onHover(desc) on mouse-in and
+// onHover("") on mouse-out, and opens the plugin page in the browser on tap.
+type infoBtn struct {
+	widget.Button
+	desc    string
+	onHover func(string)
+}
+
+func newInfoBtn(desc, pageURL string, onHover func(string)) *infoBtn {
+	b := &infoBtn{desc: desc, onHover: onHover}
+	b.Button = widget.Button{
+		Icon:       theme.InfoIcon(),
+		Importance: widget.LowImportance,
+		OnTapped: func() {
+			if pageURL == "" {
+				return
+			}
+			u, err := url.Parse(pageURL)
+			if err != nil {
+				return
+			}
+			_ = fyne.CurrentApp().OpenURL(u)
+		},
+	}
+	b.ExtendBaseWidget(b)
+	return b
+}
+
+func (b *infoBtn) MouseIn(e *desktop.MouseEvent) {
+	b.Button.MouseIn(e)
+	if b.onHover != nil {
+		b.onHover(b.desc)
+	}
+}
+
+func (b *infoBtn) MouseOut() {
+	b.Button.MouseOut()
+	if b.onHover != nil {
+		b.onHover("")
+	}
 }
 
 func defaultVST3Path() string {
@@ -31,6 +79,17 @@ func defaultVST3Path() string {
 	}
 }
 
+func defaultAAXPath() string {
+	switch runtime.GOOS {
+	case "windows":
+		return `C:\Program Files\Common Files\Avid\Audio\Plug-Ins`
+	case "darwin":
+		return "/Library/Application Support/Avid/Audio/Plug-Ins"
+	default:
+		return ""
+	}
+}
+
 func main() {
 	a := app.NewWithID("com.analogobsession.aoinstaller")
 	a.Settings().SetTheme(bwTheme{})
@@ -41,21 +100,32 @@ func main() {
 	w.CenterOnScreen()
 
 	// ── Header ────────────────────────────────────────────────────────────────
-	titleLabel := widget.NewLabelWithStyle(
-		"Analog Obsession",
-		fyne.TextAlignCenter,
-		fyne.TextStyle{Bold: true},
-	)
+	titleLabel := canvas.NewText("Analog Obsession", colBlack)
+	titleLabel.TextSize = 24
+	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+	titleLabel.Alignment = fyne.TextAlignCenter
 	subtitleLabel := widget.NewLabelWithStyle(
-		"Free VST3 Plugin Installer  •  Windows",
+		"Batch Plugin Installer",
 		fyne.TextAlignCenter,
 		fyne.TextStyle{Italic: true},
 	)
 
-	// ── Install path row ──────────────────────────────────────────────────────
+	prefs := a.Preferences()
+
+	// ── Install path rows ─────────────────────────────────────────────────────
 	pathEntry := widget.NewEntry()
 	pathEntry.SetText(defaultVST3Path())
 	pathEntry.SetPlaceHolder("VST3 install directory...")
+	if saved := prefs.String("vst3Dir"); saved != "" {
+		pathEntry.SetText(saved)
+	}
+
+	aaxPathEntry := widget.NewEntry()
+	aaxPathEntry.SetText(defaultAAXPath())
+	aaxPathEntry.SetPlaceHolder("AAX install directory...")
+	if saved := prefs.String("aaxDir"); saved != "" {
+		aaxPathEntry.SetText(saved)
+	}
 
 	browseBtn := widget.NewButton("Browse…", func() {
 		dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
@@ -65,51 +135,190 @@ func main() {
 			pathEntry.SetText(uri.Path())
 		}, w)
 	})
-	pathRow := container.NewBorder(nil, nil, nil, browseBtn, pathEntry)
+	vst3PathLabel := widget.NewLabel("VST3")
+	pathRow := container.NewBorder(nil, nil, vst3PathLabel, browseBtn, pathEntry)
+	pathRow.Hide()
+
+	aaxBrowseBtn := widget.NewButton("Browse…", func() {
+		dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
+			if err != nil || uri == nil {
+				return
+			}
+			aaxPathEntry.SetText(uri.Path())
+		}, w)
+	})
+	aaxPathLabel := widget.NewLabel("AAX")
+	aaxPathRow := container.NewBorder(nil, nil, aaxPathLabel, aaxBrowseBtn, aaxPathEntry)
+	aaxPathRow.Hide()
 
 	// ── Plugin rows ───────────────────────────────────────────────────────────
+	hintLabel := canvas.NewText("", colGrey150)
+	hintLabel.TextSize = 10
+	hintLabel.Alignment = fyne.TextAlignCenter
+
 	prows := make([]*pluginRow, len(Plugins))
 	objs := make([]fyne.CanvasObject, len(Plugins))
 	for i, p := range Plugins {
 		check := widget.NewCheck(p.Name, nil)
-		badge := widget.NewLabel("")
-		row := container.NewBorder(nil, nil, nil, badge, check)
-		prows[i] = &pluginRow{plugin: p, check: check, badge: badge, obj: row}
+
+		vst3Badge := canvas.NewText("vst3:", colGrey150)
+		vst3Badge.TextSize = 9
+		vst3Badge.Alignment = fyne.TextAlignTrailing
+
+		aaxBadge := canvas.NewText("aax:", colGrey150)
+		aaxBadge.TextSize = 9
+		aaxBadge.Alignment = fyne.TextAlignTrailing
+
+		info := newInfoBtn(p.Desc, p.PageURL, func(s string) {
+			hintLabel.Text = s
+			hintLabel.Refresh()
+		})
+		right := container.NewHBox(
+			container.New(
+				layout.NewCustomPaddedLayout(0, 0, 0, 8),
+				container.New(layout.NewGridLayout(2), vst3Badge, aaxBadge),
+			),
+			info,
+		)
+		row := container.NewBorder(nil, nil, nil, right, check)
+		prows[i] = &pluginRow{plugin: p, check: check, vst3Badge: vst3Badge, aaxBadge: aaxBadge, obj: row}
 		objs[i] = row
 	}
 
+
 	pluginScroll := container.NewVScroll(container.NewVBox(objs...))
-	pluginScroll.SetMinSize(fyne.NewSize(600, 360))
+	pluginScroll.SetMinSize(fyne.NewSize(600, 340))
 
 	// ── Status refresh ────────────────────────────────────────────────────────
-	refreshStatus := func(vst3Dir string) {
+	countLabel := widget.NewLabel("")
+	countLabel.Importance = widget.LowImportance
+
+	refreshStatus := func(vst3Dir, aaxDir string) {
+		installed := 0
 		for _, r := range prows {
-			if IsInstalled(r.plugin.Name, vst3Dir) {
-				r.badge.SetText("✓ installed")
+			vst3ok := IsInstalled(r.plugin, vst3Dir)
+			aaxok := IsAAXInstalled(r.plugin, aaxDir)
+			if vst3ok || aaxok {
+				installed++
+			}
+			if vst3ok {
+				r.vst3Badge.Text = "vst3: ✓"
+				r.vst3Badge.Color = colGrey80
 			} else {
-				r.badge.SetText("")
+				r.vst3Badge.Text = "vst3:"
+				r.vst3Badge.Color = colGrey150
+			}
+			r.vst3Badge.Refresh()
+			if aaxok {
+				r.aaxBadge.Text = "aax: ✓"
+				r.aaxBadge.Color = colGrey80
+			} else {
+				r.aaxBadge.Text = "aax:"
+				r.aaxBadge.Color = colGrey150
+			}
+			r.aaxBadge.Refresh()
+		}
+		countLabel.SetText(fmt.Sprintf("%d / %d installed", installed, len(Plugins)))
+	}
+	pathEntry.OnChanged = func(s string) {
+		prefs.SetString("vst3Dir", s)
+		refreshStatus(s, aaxPathEntry.Text)
+	}
+	aaxPathEntry.OnChanged = func(s string) {
+		prefs.SetString("aaxDir", s)
+		refreshStatus(pathEntry.Text, s)
+	}
+
+	// ── Format checkboxes + selection buttons ────────────────────────────────
+	var installBtn *widget.Button
+	var vst3Check, aaxCheck *widget.Check
+
+	updateInstallBtn := func() {
+		// installBtn may not be set yet during initial setup; guard nil
+		if installBtn == nil {
+			return
+		}
+		anyPlugin := false
+		for _, r := range prows {
+			if r.check.Checked {
+				anyPlugin = true
+				break
 			}
 		}
+		anyFormat := vst3Check.Checked || aaxCheck.Checked
+		if anyPlugin && anyFormat {
+			installBtn.Enable()
+		} else {
+			installBtn.Disable()
+		}
 	}
-	pathEntry.OnChanged = func(s string) { refreshStatus(s) }
 
-	// ── Selection buttons ─────────────────────────────────────────────────────
+	// Wire plugin check callbacks now that updateInstallBtn is defined.
+	for _, r := range prows {
+		r := r
+		r.check.OnChanged = func(_ bool) { updateInstallBtn() }
+	}
+
+	vst3Check = widget.NewCheck("VST3", func(_ bool) {
+		updateInstallBtn()
+	})
+	vst3Check.SetChecked(true)
+
+	aaxCheck = widget.NewCheck("AAX", func(checked bool) {
+		if !checked {
+			aaxPathRow.Hide()
+		}
+		updateInstallBtn()
+	})
+
+	settingsBtn := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
+		d := dialog.NewCustom("Install Paths", "Done",
+			container.NewVBox(
+				container.NewBorder(nil, nil, vst3PathLabel, browseBtn, pathEntry),
+				container.NewBorder(nil, nil, aaxPathLabel, aaxBrowseBtn, aaxPathEntry),
+			), w)
+		d.Resize(fyne.NewSize(500, 120))
+		d.Show()
+	})
+	settingsBtn.Importance = widget.LowImportance
+
+	formatRow := container.NewHBox(vst3Check, aaxCheck, settingsBtn)
+
 	selectAllBtn := widget.NewButton("Select All", func() {
 		for _, r := range prows {
 			r.check.SetChecked(true)
 		}
+		updateInstallBtn()
 	})
 	deselectAllBtn := widget.NewButton("Deselect All", func() {
 		for _, r := range prows {
 			r.check.SetChecked(false)
 		}
+		updateInstallBtn()
 	})
-	selectionRow := container.NewHBox(selectAllBtn, deselectAllBtn)
+	selectionRow := container.NewBorder(nil, nil, nil, formatRow,
+		container.NewHBox(selectAllBtn, deselectAllBtn))
+
+	// ── Search + count row ────────────────────────────────────────────────────
+	searchEntry := widget.NewEntry()
+	searchEntry.SetPlaceHolder("Filter plugins…")
+	searchEntry.OnChanged = func(q string) {
+		q = strings.ToLower(q)
+		for _, r := range prows {
+			if q == "" || strings.Contains(strings.ToLower(r.plugin.Name), q) {
+				r.obj.Show()
+			} else {
+				r.obj.Hide()
+			}
+		}
+		pluginScroll.Refresh()
+	}
+	searchRow := container.NewBorder(nil, nil, nil, countLabel, searchEntry)
 
 	// ── Log panel ─────────────────────────────────────────────────────────────
 	logEntry := widget.NewMultiLineEntry()
 	logEntry.Disable() // read-only; text colour set via theme.ColorNameDisabled
-	logEntry.SetMinRowsVisible(6)
+	logEntry.SetMinRowsVisible(3)
 
 	logScroll := container.NewVScroll(logEntry)
 	logScroll.SetMinSize(fyne.NewSize(600, 110))
@@ -124,7 +333,6 @@ func main() {
 	progressBar.Hide()
 
 	// ── Install button ────────────────────────────────────────────────────────
-	var installBtn *widget.Button
 	var uninstallBtn *widget.Button
 	var actionRow *fyne.Container
 	var cancelInstall context.CancelFunc
@@ -169,7 +377,8 @@ func main() {
 				actionRow.Objects = []fyne.CanvasObject{installBtn, uninstallBtn}
 				actionRow.Layout = layout.NewGridLayout(2)
 				actionRow.Refresh()
-				refreshStatus(pathEntry.Text)
+				refreshStatus(pathEntry.Text, aaxPathEntry.Text)
+				updateInstallBtn()
 				progressBar.Hide()
 			}()
 
@@ -184,9 +393,10 @@ func main() {
 					break
 				}
 
-				if err := InstallPlugin(ctx, p, pathEntry.Text, func(msg string) {
-					logger.Log(msg)
-				}); err != nil {
+				if err := InstallPlugin(ctx, p, pathEntry.Text, aaxPathEntry.Text,
+					vst3Check.Checked, aaxCheck.Checked, func(msg string) {
+						logger.Log(msg)
+					}); err != nil {
 					if ctx.Err() != nil {
 						cancelled = true
 						break
@@ -216,11 +426,21 @@ func main() {
 	installBtn.Importance = widget.HighImportance
 
 	// ── Uninstall button ──────────────────────────────────────────────────────
+	type uninstallEntry struct {
+		row    *pluginRow
+		doVST3 bool
+		doAAX  bool
+	}
 	uninstallBtn = widget.NewButton("Uninstall Selected", func() {
-		selected := make([]*pluginRow, 0)
+		selected := make([]uninstallEntry, 0)
 		for _, r := range prows {
-			if r.check.Checked && IsInstalled(r.plugin.Name, pathEntry.Text) {
-				selected = append(selected, r)
+			if !r.check.Checked {
+				continue
+			}
+			doVST3 := vst3Check.Checked && IsInstalled(r.plugin, pathEntry.Text)
+			doAAX := aaxCheck.Checked && IsAAXInstalled(r.plugin, aaxPathEntry.Text)
+			if doVST3 || doAAX {
+				selected = append(selected, uninstallEntry{r, doVST3, doAAX})
 			}
 		}
 		if len(selected) == 0 {
@@ -238,15 +458,25 @@ func main() {
 				}
 				uninstallBtn.Disable()
 				errCount := 0
-				for _, r := range selected {
-					if err := UninstallPlugin(r.plugin.Name, pathEntry.Text); err != nil {
-						errCount++
-						logger.Log(fmt.Sprintf("✗ %s — %v", r.plugin.Name, err))
-					} else {
-						logger.Log(fmt.Sprintf("✓ %s removed.", r.plugin.Name))
+				for _, e := range selected {
+					if e.doVST3 {
+						if err := UninstallPlugin(e.row.plugin, pathEntry.Text); err != nil {
+							errCount++
+							logger.Log(fmt.Sprintf("✗ %s VST3 — %v", e.row.plugin.Name, err))
+						} else {
+							logger.Log(fmt.Sprintf("✓ %s VST3 removed.", e.row.plugin.Name))
+						}
+					}
+					if e.doAAX {
+						if err := UninstallAAX(e.row.plugin, aaxPathEntry.Text); err != nil {
+							errCount++
+							logger.Log(fmt.Sprintf("✗ %s AAX — %v", e.row.plugin.Name, err))
+						} else {
+							logger.Log(fmt.Sprintf("✓ %s AAX removed.", e.row.plugin.Name))
+						}
 					}
 				}
-				refreshStatus(pathEntry.Text)
+				refreshStatus(pathEntry.Text, aaxPathEntry.Text)
 				if errCount == 0 {
 					logger.Log(fmt.Sprintf("✓ Removed %d plugin(s).", len(selected)))
 				} else {
@@ -260,29 +490,39 @@ func main() {
 	// ── Root layout ───────────────────────────────────────────────────────────
 	actionRow = container.NewGridWithColumns(2, installBtn, uninstallBtn)
 
+	versionLabel := widget.NewLabelWithStyle(
+		"v1.0.0",
+		fyne.TextAlignCenter,
+		fyne.TextStyle{Italic: true},
+	)
+	versionLabel.Importance = widget.LowImportance
+
 	content := container.NewVBox(
 		titleLabel,
 		subtitleLabel,
 		widget.NewSeparator(),
-		pathRow,
 		selectionRow,
+		searchRow,
 		widget.NewSeparator(),
 		pluginScroll,
+		hintLabel,
 		widget.NewSeparator(),
 		progressBar,
 		logScroll,
 		actionRow,
+		versionLabel,
 	)
 
 	w.SetContent(container.NewPadded(container.NewPadded(content)))
 
 	// Initial scan — pre-select every plugin not yet installed.
-	refreshStatus(pathEntry.Text)
+	refreshStatus(pathEntry.Text, aaxPathEntry.Text)
 	for _, r := range prows {
-		if !IsInstalled(r.plugin.Name, pathEntry.Text) {
+		if !IsInstalled(r.plugin, pathEntry.Text) {
 			r.check.SetChecked(true)
 		}
 	}
+	updateInstallBtn()
 
 	w.ShowAndRun()
 }

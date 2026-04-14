@@ -13,10 +13,10 @@ import (
 )
 
 // InstallPlugin downloads the plugin zip, extracts it to a temp directory,
-// finds all .vst3 files/bundles, and copies them to vst3Dir.
+// and copies the requested format bundles to their respective directories.
 // onStatus is called with human-readable progress messages.
 // Cancelling ctx aborts the operation; any partial download is cleaned up.
-func InstallPlugin(ctx context.Context, p Plugin, vst3Dir string, onStatus func(string)) error {
+func InstallPlugin(ctx context.Context, p Plugin, vst3Dir, aaxDir string, installVST3, installAAX bool, onStatus func(string)) error {
 	// --- Download ---
 	onStatus(fmt.Sprintf("[%s] Downloading...", p.Name))
 
@@ -69,11 +69,18 @@ func InstallPlugin(ctx context.Context, p Plugin, vst3Dir string, onStatus func(
 	// --- Install ---
 	onStatus(fmt.Sprintf("[%s] Installing to %s...", p.Name, vst3Dir))
 
-	if err := os.MkdirAll(vst3Dir, 0o755); err != nil {
-		return fmt.Errorf("create VST3 dir: %w", err)
+	if installVST3 {
+		if err := os.MkdirAll(vst3Dir, 0o755); err != nil {
+			return fmt.Errorf("create VST3 dir: %w", err)
+		}
+	}
+	if installAAX && aaxDir != "" {
+		if err := os.MkdirAll(aaxDir, 0o755); err != nil {
+			return fmt.Errorf("create AAX dir: %w", err)
+		}
 	}
 
-	return copyVST3Files(tmpDir, vst3Dir, p.Name)
+	return copyPluginFiles(tmpDir, vst3Dir, aaxDir, p.Name, installVST3, installAAX, onStatus)
 }
 
 // unzip extracts all entries from src into dst.
@@ -129,36 +136,55 @@ func writeZipEntry(f *zip.File, dst string) error {
 	return err
 }
 
-// copyVST3Files walks srcDir, finds every .vst3 entry (file or bundle folder),
-// and copies it into dstDir. Returns an error if no .vst3 is found.
-func copyVST3Files(srcDir, dstDir, pluginName string) error {
-	var found bool
+// copyPluginFiles walks srcDir and copies .vst3 and/or .aaxplugin bundles
+// into their respective destination directories.
+func copyPluginFiles(srcDir, vst3Dir, aaxDir, pluginName string, installVST3, installAAX bool, onStatus func(string)) error {
+	var foundVST3, foundAAX bool
 
 	err := fs.WalkDir(os.DirFS(srcDir), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !strings.EqualFold(filepath.Ext(path), ".vst3") {
-			return nil
-		}
+		ext := strings.ToLower(filepath.Ext(path))
 
-		found = true
-		abs := filepath.Join(srcDir, filepath.FromSlash(path))
-		dst := filepath.Join(dstDir, filepath.Base(abs))
-
-		if d.IsDir() {
-			if err := copyDir(abs, dst); err != nil {
-				return err
+		if ext == ".vst3" && installVST3 {
+			foundVST3 = true
+			abs := filepath.Join(srcDir, filepath.FromSlash(path))
+			dst := filepath.Join(vst3Dir, filepath.Base(abs))
+			onStatus(fmt.Sprintf("[%s] VST3: %s → %s", pluginName, filepath.Base(abs), dst))
+			if d.IsDir() {
+				if err := copyDir(abs, dst); err != nil {
+					return fmt.Errorf("copyDir %s: %w", filepath.Base(abs), err)
+				}
+				return fs.SkipDir
 			}
-			return fs.SkipDir // don't recurse inside the bundle
+			return copyFile(abs, dst)
 		}
-		return copyFile(abs, dst)
+
+		if ext == ".aaxplugin" && installAAX {
+			foundAAX = true
+			abs := filepath.Join(srcDir, filepath.FromSlash(path))
+			dst := filepath.Join(aaxDir, filepath.Base(abs))
+			onStatus(fmt.Sprintf("[%s] AAX: %s → %s", pluginName, filepath.Base(abs), dst))
+			if d.IsDir() {
+				if err := copyDir(abs, dst); err != nil {
+					return fmt.Errorf("copyDir %s: %w", filepath.Base(abs), err)
+				}
+				return fs.SkipDir
+			}
+			return copyFile(abs, dst)
+		}
+
+		return nil
 	})
 	if err != nil {
 		return err
 	}
-	if !found {
-		return fmt.Errorf("no .vst3 file found inside the zip for %q", pluginName)
+	if installVST3 && !foundVST3 {
+		return fmt.Errorf("no .vst3 found in zip for %q", pluginName)
+	}
+	if installAAX && !foundAAX {
+		return fmt.Errorf("no .aaxplugin found in zip for %q", pluginName)
 	}
 	return nil
 }
@@ -186,31 +212,57 @@ func copyDir(src, dst string) error {
 	})
 }
 
-// IsInstalled reports whether a plugin's .vst3 bundle exists in vst3Dir.
-// Matches case-insensitively and tolerates version suffixes in the filename
-// (e.g. "room041_2.0.vst3" matches plugin name "Room041").
-func IsInstalled(name, vst3Dir string) bool {
-	entries, err := os.ReadDir(vst3Dir)
+// findBundle scans dir for a bundle matching bundleName with the given
+// extension, case-insensitively and tolerating common version suffixes.
+// Returns the full path or "".
+func findBundle(bundleName, dir, ext string) string {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return false
+		return ""
 	}
-	lname := strings.ToLower(name)
+	lname := strings.ToLower(bundleName)
 	for _, e := range entries {
 		en := strings.ToLower(e.Name())
-		if !strings.HasSuffix(en, ".vst3") {
+		if !strings.HasSuffix(en, ext) {
 			continue
 		}
-		stem := strings.TrimSuffix(en, ".vst3")
-		if stem == lname || strings.HasPrefix(stem, lname+"_") || strings.HasPrefix(stem, lname+".") {
-			return true
+		stem := strings.TrimSuffix(en, ext)
+		if stem == lname ||
+			strings.HasPrefix(stem, lname+"_") ||
+			strings.HasPrefix(stem, lname+".") ||
+			strings.HasPrefix(stem, lname+"-") {
+			return filepath.Join(dir, e.Name())
 		}
 	}
-	return false
+	return ""
+}
+
+// IsInstalled reports whether a plugin's .vst3 bundle exists in vst3Dir.
+func IsInstalled(p Plugin, vst3Dir string) bool {
+	return findBundle(p.Bundle(), vst3Dir, ".vst3") != ""
+}
+
+// IsAAXInstalled reports whether a plugin's .aaxplugin bundle exists in aaxDir.
+func IsAAXInstalled(p Plugin, aaxDir string) bool {
+	return findBundle(p.Bundle(), aaxDir, ".aaxplugin") != ""
 }
 
 // UninstallPlugin removes a plugin's .vst3 bundle from vst3Dir.
-func UninstallPlugin(name, vst3Dir string) error {
-	return os.RemoveAll(filepath.Join(vst3Dir, name+".vst3"))
+func UninstallPlugin(p Plugin, vst3Dir string) error {
+	path := findBundle(p.Bundle(), vst3Dir, ".vst3")
+	if path == "" {
+		return fmt.Errorf("%s not found in %s", p.Bundle(), vst3Dir)
+	}
+	return os.RemoveAll(path)
+}
+
+// UninstallAAX removes a plugin's .aaxplugin bundle from aaxDir.
+func UninstallAAX(p Plugin, aaxDir string) error {
+	path := findBundle(p.Bundle(), aaxDir, ".aaxplugin")
+	if path == "" {
+		return fmt.Errorf("%s not found in %s", p.Bundle(), aaxDir)
+	}
+	return os.RemoveAll(path)
 }
 
 // copyFile copies a single file from src to dst, preserving permissions.
