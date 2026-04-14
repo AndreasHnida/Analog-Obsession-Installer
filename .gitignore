@@ -1,0 +1,15 @@
+# Build outputs
+*.exe
+aoinstaller
+
+# Logs
+*.log
+
+# Downloaded plugin zips (test artifacts)
+*.zip
+
+# Windows Zone.Identifier streams
+*:Zone.Identifier
+
+# Claude internal
+.claude/

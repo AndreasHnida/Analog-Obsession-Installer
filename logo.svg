@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+
+  <!-- Background -->
+  <rect width="200" height="200" fill="white"/>
+
+  <!-- Geometric A: bottom-left → apex → bottom-right, sharp miter at apex -->
+  <polyline
+    points="8,164 48,24 88,164"
+    fill="none"
+    stroke="black"
+    stroke-width="11"
+    stroke-linejoin="miter"
+    stroke-miterlimit="10"/>
+
+  <!-- Crossbar at ~55% of cap height -->
+  <line
+    x1="26" y1="102"
+    x2="70" y2="102"
+    stroke="black"
+    stroke-width="11"
+    stroke-linecap="butt"/>
+
+  <!-- Geometric O: uniform-weight circle -->
+  <circle
+    cx="152" cy="94" r="46"
+    fill="none"
+    stroke="black"
+    stroke-width="11"/>
+
+</svg>
