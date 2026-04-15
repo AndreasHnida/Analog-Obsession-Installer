@@ -39,6 +39,8 @@ Please support the creator directly:
 
 If you find these plugins useful, consider becoming a patron. The plugins are free — the creator relies on community support to keep making them.
 
+If you find this app useful, consider buying me a coffee by saying thank you and donating to the plugin via Gumroad - [Analog Obsession Installer](https://3939494713553.gumroad.com/l/zbtac)
+
 ## Building from source
 
 Requires Go 1.23+ and a C compiler (e.g. [TDM-GCC](https://jmeubank.github.io/tdm-gcc/) or MSYS2 MinGW).
