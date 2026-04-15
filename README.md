@@ -6,11 +6,11 @@ A fan-made batch installer for the free VST3/AAX plugins by **Analog Obsession**
 
 ---
 
-![Screenshot](screenshot.png)
+![Screenshot](aoinstaller.jpg)
 
 ## What it does
 
-Lists all free Analog Obsession plugins in one window. Select the ones you want (VST3 and/or AAX) and click **Install Selected** — the installer handles the rest.
+Lists all free Analog Obsession plugins in one window. Select the ones you want, select version VST3 and/or AAX and click **Install Selected** or **Uninstall Selected** — the installer handles the rest.
 
 ## Requirements
 
@@ -23,11 +23,9 @@ Lists all free Analog Obsession plugins in one window. Select the ones you want 
 1. Download `AOInstaller.exe` from [Releases](../../releases)
 2. Run it — UAC will ask for elevation
 3. Select the plugins you want
-4. Click **Install Selected**
+4. Click **Install Selected** or **Uninstall Selected**
 
 The default install paths are `C:\Program Files\Common Files\VST3` and `C:\Program Files\Common Files\Avid\Audio\Plug-Ins` for AAX. Both can be changed via the Browse buttons.
-
-Installed plugins can be removed individually with the **Uninstall** button next to each entry.
 
 ## Credits
 
