@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -35,16 +36,16 @@ func newAppLogger(entry *widget.Entry, scroll *container.Scroll) *AppLogger {
 
 func (l *AppLogger) Log(msg string) {
 	line := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), msg)
-
-	cur := l.entry.Text
-	if cur == "" {
-		l.entry.SetText(line)
-	} else {
-		l.entry.SetText(cur + "\n" + line)
-	}
-	l.scroll.ScrollToBottom()
-
 	l.writeLine(line)
+
+	fyne.Do(func() {
+		if l.entry.Text == "" {
+			l.entry.SetText(line)
+		} else {
+			l.entry.Append("\n" + line)
+		}
+		l.scroll.ScrollToBottom()
+	})
 }
 
 func (l *AppLogger) writeLine(line string) {

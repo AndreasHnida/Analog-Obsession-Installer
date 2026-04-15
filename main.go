@@ -410,16 +410,18 @@ func main() {
 		go func() {
 			defer func() {
 				cancel()
-				installBtn.SetText("Install Selected")
-				installBtn.Importance = widget.HighImportance
-				installBtn.OnTapped = installAction
-				installBtn.Refresh()
-				actionRow.Objects = []fyne.CanvasObject{installBtn, uninstallBtn}
-				actionRow.Layout = layout.NewGridLayout(2)
-				actionRow.Refresh()
-				refreshStatus(pathEntry.Text, aaxPathEntry.Text)
-				updateInstallBtn()
-				progressBar.Hide()
+				fyne.Do(func() {
+					installBtn.SetText("Install Selected")
+					installBtn.Importance = widget.HighImportance
+					installBtn.OnTapped = installAction
+					installBtn.Refresh()
+					actionRow.Objects = []fyne.CanvasObject{installBtn, uninstallBtn}
+					actionRow.Layout = layout.NewGridLayout(2)
+					actionRow.Refresh()
+					refreshStatus(pathEntry.Text, aaxPathEntry.Text)
+					updateInstallBtn()
+					progressBar.Hide()
+				})
 			}()
 
 			logger.Log(fmt.Sprintf("Starting installation of %d plugin(s)…", len(selected)))
@@ -447,13 +449,14 @@ func main() {
 					logger.Log(fmt.Sprintf("✓ %s installed.", p.Name))
 				}
 
-				progressBar.SetValue(float64(i+1) / total)
+				v := float64(i+1) / total
+				fyne.Do(func() { progressBar.SetValue(v) })
 			}
 
 			switch {
 			case cancelled:
 				logger.Log("Installation cancelled.")
-				progressBar.SetValue(0)
+				fyne.Do(func() { progressBar.SetValue(0) })
 			case errCount == 0:
 				logger.Log(fmt.Sprintf("✓ Done! %d plugin(s) installed successfully.", len(selected)))
 			default:
