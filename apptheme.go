@@ -72,7 +72,7 @@ func (bwTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.
 	case theme.ColorNamePrimary:
 		return colNearBlack // checkboxes, progress bar, HighImportance button
 	case theme.ColorNameFocus:
-		return colGrey80
+		return color.Transparent
 	case theme.ColorNameHover:
 		return color.NRGBA{R: 0, G: 0, B: 0, A: 0} // no hover tint on buttons
 	case theme.ColorNamePressed:

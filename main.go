@@ -311,13 +311,25 @@ func main() {
 		updateInstallBtn()
 	})
 
+	var logger *AppLogger // initialized after log widgets are created below
+
+	logFileCheck := widget.NewCheck("Write log file", func(checked bool) {
+		prefs.SetBool("fileLog", checked)
+		if logger != nil {
+			logger.SetFileLog(checked)
+		}
+	})
+	logFileCheck.SetChecked(prefs.Bool("fileLog"))
+
 	settingsBtn := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
-		d := dialog.NewCustom("Install Paths", "Done",
+		d := dialog.NewCustom("Settings", "Done",
 			container.NewVBox(
 				container.NewBorder(nil, nil, vst3PathLabel, browseBtn, pathEntry),
 				container.NewBorder(nil, nil, aaxPathLabel, aaxBrowseBtn, aaxPathEntry),
+				widget.NewSeparator(),
+				logFileCheck,
 			), w)
-		d.Resize(fyne.NewSize(500, 120))
+		d.Resize(fyne.NewSize(500, 160))
 		d.Show()
 	})
 	settingsBtn.Importance = widget.LowImportance
@@ -362,8 +374,11 @@ func main() {
 	logScroll := container.NewVScroll(logRT)
 	logScroll.SetMinSize(fyne.NewSize(600, 110))
 
-	logger := newAppLogger(logRT, logScroll)
+	logger = newAppLogger(logRT, logScroll)
 	defer logger.Close()
+	if prefs.Bool("fileLog") {
+		logger.SetFileLog(true)
+	}
 
 	logger.Log("Ready — select plugins and press Install.")
 
