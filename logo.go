@@ -6,7 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 )
 
-//go:embed icon.png
+//go:embed assets/icon.png
 var iconBytes []byte
 
 // appIcon is the application icon used in the window title bar and taskbar.

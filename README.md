@@ -1,16 +1,16 @@
 # Analog Obsession Installer
 
-A fan-made batch installer for the free VST3 plugins by **Analog Obsession**.
+A fan-made batch installer for the free VST3/AAX plugins by **Analog Obsession**.
 
 > **Disclaimer** — This is an independent fan project with no affiliation to, endorsement by, or relationship with Analog Obsession or its creator. All plugins are the intellectual property of their respective author. This tool simply automates downloading and placing the files you could install manually yourself.
 
 ---
 
+![Screenshot](screenshot.png)
+
 ## What it does
 
-Lists all free Analog Obsession plugins in one window. Select the ones you want and click **Install Selected** — the installer handles the rest.
-
-> **Work in progress** — AAX and macOS support are planned for a future release.
+Lists all free Analog Obsession plugins in one window. Select the ones you want (VST3 and/or AAX) and click **Install Selected** — the installer handles the rest.
 
 ## Requirements
 
@@ -25,7 +25,9 @@ Lists all free Analog Obsession plugins in one window. Select the ones you want 
 3. Select the plugins you want
 4. Click **Install Selected**
 
-The default install path is `C:\Program Files\Common Files\VST3`, which is standard for all major DAWs. You can change it via the Browse button.
+The default install paths are `C:\Program Files\Common Files\VST3` and `C:\Program Files\Common Files\Avid\Audio\Plug-Ins` for AAX. Both can be changed via the Browse buttons.
+
+Installed plugins can be removed individually with the **Uninstall** button next to each entry.
 
 ## Credits
 
@@ -41,12 +43,13 @@ If you find these plugins useful, consider becoming a patron. The plugins are fr
 
 ## Building from source
 
-Requirements: Go 1.23+, `gcc-mingw-w64-x86-64`, `libgl1-mesa-dev`, `xorg-dev`
+Requires Go 1.23+ and a C compiler (e.g. [TDM-GCC](https://jmeubank.github.io/tdm-gcc/) or MSYS2 MinGW).
 
-```bash
-GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc \
-  go build -ldflags="-H windowsgui -s -w" -o AOInstaller.exe .
+```bat
+build.bat
 ```
+
+If you change `app.rc`, `app.manifest`, or `logo.ico`, regenerate `rsrc_windows_amd64.syso` with [`rsrc`](https://github.com/akavel/rsrc).
 
 ## License
 
