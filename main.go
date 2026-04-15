@@ -356,14 +356,13 @@ func main() {
 	searchRow := container.NewBorder(nil, nil, nil, countLabel, searchEntry)
 
 	// ── Log panel ─────────────────────────────────────────────────────────────
-	logEntry := widget.NewMultiLineEntry()
-	logEntry.Disable() // read-only; text colour set via theme.ColorNameDisabled
-	logEntry.SetMinRowsVisible(3)
+	logRT := widget.NewRichText()
+	logRT.Wrapping = fyne.TextWrapWord
 
-	logScroll := container.NewVScroll(logEntry)
+	logScroll := container.NewVScroll(logRT)
 	logScroll.SetMinSize(fyne.NewSize(600, 110))
 
-	logger := newAppLogger(logEntry, logScroll)
+	logger := newAppLogger(logRT, logScroll)
 	defer logger.Close()
 
 	logger.Log("Ready — select plugins and press Install.")

@@ -14,21 +14,28 @@ type bwTheme struct{}
 
 var _ fyne.Theme = (*bwTheme)(nil)
 
+const (
+	colorNameLogSuccess fyne.ThemeColorName = "logSuccess"
+	colorNameLogError   fyne.ThemeColorName = "logError"
+)
+
 var (
-	colWhite     = color.White
-	colBlack     = color.Black
-	colNearBlack = color.NRGBA{R: 30, G: 30, B: 30, A: 255}
-	colGrey20    = color.NRGBA{R: 20, G: 20, B: 20, A: 255}
-	colGrey80    = color.NRGBA{R: 80, G: 80, B: 80, A: 255}
-	colGrey150   = color.NRGBA{R: 150, G: 150, B: 150, A: 255}
-	colGrey160   = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
-	colGrey180   = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
-	colGrey200   = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
-	colGrey210   = color.NRGBA{R: 210, G: 210, B: 210, A: 255}
-	colGrey220   = color.NRGBA{R: 220, G: 220, B: 220, A: 255}
-	colGrey240   = color.NRGBA{R: 240, G: 240, B: 240, A: 255}
-	colGrey245   = color.NRGBA{R: 245, G: 245, B: 245, A: 255}
-	colShadow    = color.NRGBA{R: 0, G: 0, B: 0, A: 25}
+	colWhite      = color.White
+	colBlack      = color.Black
+	colNearBlack  = color.NRGBA{R: 30, G: 30, B: 30, A: 255}
+	colGrey20     = color.NRGBA{R: 20, G: 20, B: 20, A: 255}
+	colGrey80     = color.NRGBA{R: 80, G: 80, B: 80, A: 255}
+	colGrey150    = color.NRGBA{R: 150, G: 150, B: 150, A: 255}
+	colGrey160    = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
+	colGrey180    = color.NRGBA{R: 180, G: 180, B: 180, A: 255}
+	colGrey200    = color.NRGBA{R: 200, G: 200, B: 200, A: 255}
+	colGrey210    = color.NRGBA{R: 210, G: 210, B: 210, A: 255}
+	colGrey220    = color.NRGBA{R: 220, G: 220, B: 220, A: 255}
+	colGrey240    = color.NRGBA{R: 240, G: 240, B: 240, A: 255}
+	colGrey245    = color.NRGBA{R: 245, G: 245, B: 245, A: 255}
+	colShadow     = color.NRGBA{R: 0, G: 0, B: 0, A: 25}
+	colBrightGreen = color.NRGBA{R: 0, G: 230, B: 80, A: 255}
+	colBrightRed   = color.NRGBA{R: 255, G: 60, B: 60, A: 255}
 )
 
 func (bwTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
@@ -92,6 +99,12 @@ func (bwTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.
 		return colGrey200
 	case theme.ColorNameShadow:
 		return colShadow
+
+	// ── Log panel colours ────────────────────────────────────────────────────
+	case colorNameLogSuccess:
+		return colBrightGreen
+	case colorNameLogError:
+		return colBrightRed
 
 	// ── Status colours — keep red/amber/green for cancel button etc. ─────────
 	case theme.ColorNameError, theme.ColorNameWarning, theme.ColorNameSuccess:
