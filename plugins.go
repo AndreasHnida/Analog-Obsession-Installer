@@ -326,6 +326,13 @@ var Plugins = []Plugin{
 		ImgURL:  "https://analogobsession.com/wp-content/uploads/2023/12/MPReq.png",
 	},
 	{
+		Name:    "MUChild",
+		ZipURL:  "https://analogobsession.com/wp-content/uploads/2026/05/MuChild_1.0.zip",
+		PageURL: "https://www.patreon.com/posts/157419821",
+		Desc:    "Holy Grail of compressors!",
+		ImgURL:  "https://analogobsession.com/wp-content/uploads/2025/04/MythPre.png",
+	},
+	{
 		Name:    "MythPre",
 		ZipURL:  "https://analogobsession.com/wp-content/uploads/2025/04/MythPre_1.0.zip",
 		PageURL: "https://analogobsession.com/color-preamp-saturation/mythpre/",
